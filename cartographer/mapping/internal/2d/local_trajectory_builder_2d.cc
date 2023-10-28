@@ -52,6 +52,7 @@ sensor::RangeData
 LocalTrajectoryBuilder2D::TransformToGravityAlignedFrameAndFilter(
     const transform::Rigid3f& transform_to_gravity_aligned_frame,
     const sensor::RangeData& range_data) const {
+    // yzt: what is crop ?3
   const sensor::RangeData cropped =
       sensor::CropRangeData(sensor::TransformRangeData(
                                 range_data, transform_to_gravity_aligned_frame),
@@ -148,6 +149,7 @@ LocalTrajectoryBuilder2D::AddRangeData(
             << extrapolator_->GetLastExtrapolatedTime() << " to " << time_point;
         warned = true;
       }
+      // TODO(yzt): why? transform at time_point could be extraploated from obvs
       time_point = extrapolator_->GetLastExtrapolatedTime();
     }
     range_data_poses.push_back(
@@ -163,8 +165,11 @@ LocalTrajectoryBuilder2D::AddRangeData(
   // Drop any returns below the minimum range and convert returns beyond the
   // maximum range into misses.
   for (size_t i = 0; i < synchronized_data.ranges.size(); ++i) {
+      // yzt: what a struct name, range_finder?1
     const sensor::TimedRangefinderPoint& hit =
         synchronized_data.ranges[i].point_time;
+    // yzt: sync_data may has lot frame of ranger data, same as origins, so 
+    // T^local_{origin_0} * T^{origin_0}_{origin_n} = T^local_{origin_n}
     const Eigen::Vector3f origin_in_local =
         range_data_poses[i] *
         synchronized_data.origins.at(synchronized_data.ranges[i].origin_index);
@@ -201,6 +206,7 @@ LocalTrajectoryBuilder2D::AddRangeData(
     return AddAccumulatedRangeData(
         time,
         TransformToGravityAlignedFrameAndFilter(
+            // yzt: T^{gravity_align_frame}_{origin_0} * T^{origin_0}_local = T^{gaf}_{local}
             gravity_alignment.cast<float>() * range_data_poses.back().inverse(),
             accumulated_range_data_),
         gravity_alignment, sensor_duration);
