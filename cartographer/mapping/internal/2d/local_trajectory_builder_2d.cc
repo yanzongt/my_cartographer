@@ -26,6 +26,8 @@
 namespace cartographer {
 namespace mapping {
 
+// 方法的顺序，应该是让人从上到下阅读比较流畅为准。最好最上面就是入口程序。
+
 static auto* kLocalSlamLatencyMetric = metrics::Gauge::Null();
 static auto* kLocalSlamRealTimeRatio = metrics::Gauge::Null();
 static auto* kLocalSlamCpuRealTimeRatio = metrics::Gauge::Null();
@@ -67,6 +69,7 @@ std::unique_ptr<transform::Rigid2d> LocalTrajectoryBuilder2D::ScanMatch(
     const common::Time time, const transform::Rigid2d& pose_prediction,
     const sensor::PointCloud& filtered_gravity_aligned_point_cloud) {
   if (active_submaps_.submaps().empty()) {
+    // yzt: the initial pose is determined by pose extropolator
     return absl::make_unique<transform::Rigid2d>(pose_prediction);
   }
   std::shared_ptr<const Submap2D> matching_submap =
@@ -76,6 +79,8 @@ std::unique_ptr<transform::Rigid2d> LocalTrajectoryBuilder2D::ScanMatch(
   transform::Rigid2d initial_ceres_pose = pose_prediction;
 
   if (options_.use_online_correlative_scan_matching()) {
+    // yzt: to get initial_ceres_pose by this matcher
+    // scan matcher only relate to grid, not submap
     const double score = real_time_correlative_scan_matcher_.Match(
         pose_prediction, filtered_gravity_aligned_point_cloud,
         *matching_submap->grid(), &initial_ceres_pose);
@@ -84,6 +89,7 @@ std::unique_ptr<transform::Rigid2d> LocalTrajectoryBuilder2D::ScanMatch(
 
   auto pose_observation = absl::make_unique<transform::Rigid2d>();
   ceres::Solver::Summary summary;
+  // yzt: why need pose_prediction translation and initial_ceres_pose ?4
   ceres_scan_matcher_.Match(pose_prediction.translation(), initial_ceres_pose,
                             filtered_gravity_aligned_point_cloud,
                             *matching_submap->grid(), pose_observation.get(),
@@ -259,6 +265,7 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
   const auto wall_time = std::chrono::steady_clock::now();
   if (last_wall_time_.has_value()) {
     const auto wall_time_duration = wall_time - last_wall_time_.value();
+    // TODO(yzt): take a look at this metric framework
     kLocalSlamLatencyMetric->Set(common::ToSeconds(wall_time_duration));
     if (sensor_duration.has_value()) {
       kLocalSlamRealTimeRatio->Set(common::ToSeconds(sensor_duration.value()) /
